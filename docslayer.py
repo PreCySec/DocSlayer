@@ -1,21 +1,22 @@
 ########################################################################################################################
 #
 #
-#  __   __       _     _              _____
-# |  \\/  |     | |   | |            |  __ \
-# | \\  / | __ _| | __| | ___   ___  | |__) |_ _ _ __ ___  ___ _ __
-# | |\\/| |/ _` | |/ _` |/ _ \ / __| |  ___/ _` | '__/ __|/ _ \ '__|
-# | |   | | (_| | | (_| | (_) | (__  | |  | (_| | |  \__ \  __/ |
-# |_|   |_|\__,_|_|\___,|\___/ \___| |_|   \__,_|_|  |___/\___|_|
+#  _____              _____ _                       
+# |  __ \            / ____| |                      
+# | |  | | ___   ___| (___ | | __ _ _   _  ___ _ __ 
+# | |  | |/ _ \ / __|\___ \| |/ _` | | | |/ _ \ '__|
+# | |__| | (_) | (__ ____) | | (_| | |_| |  __/ |   
+# |_____/ \___/ \___|_____/|_|\__,_|\__, |\___|_|   
+#                                    __/ |          
+#                                   |___/           
 #
+# @PreCySec
 #
-# Author: @danielbres93
-#
-# maldoc_parser is a static analysis tool for common Office formats and PDF files.
+# DocSlayer is a static analysis tool for common Office formats and PDF files.
 # The main goal of the tool is to automate static analysis as much as possible.
 # It currently supports OLE, OOXML, RTF and PDF files.
 #
-# Tested on Windows with Python 3.x
+# Python 3.x
 #
 #
 # References:
@@ -48,13 +49,15 @@ from PDF import *
 
 def print_banner():
 
-    printy("\n")
-    printy("[bw] __  __       _     _              _____                             @")
-    printy("[bw]|  \\/  |     | |   | |            |  __ \\                           @")
-    printy("[bw]| \\  / | __ _| | __| | ___   ___  | |__) |_ _ _ __ ___  ___ _ __     @")
-    printy("[bw]| |\\/| |/ _` | |/ _` |/ _ \\ / __| |  ___/ _` | '__/ __|/ _ \\ '__| @")
-    printy("[bw]| |  | | (_| | | (_| | (_) | (__  | |  | (_| | |  \\__ \\  __/ |     @")
-    printy("[bw]|_|  |_|\\__,_|_|\\__,_|\\___/ \\___| |_|   \\__,_|_|  |___/\\___|_| @\n")
+    print("\n")
+    printy("[bw]  _____              _____ _                       @")
+    printy("[bw] |  __ \            / ____| |                      @")
+    printy("[bw] | |  | | ___   ___| (___ | | __ _ _   _  ___ _ __ @")
+    printy("[bw] | |  | |/ _ \ / __|\___ \| |/ _` | | | |/ _ \ '__|@")
+    printy("[bw] | |__| | (_) | (__ ____) | | (_| | |_| |  __/ |   @")
+    printy("[bw] |_____/ \___/ \___|_____/|_|\__,_|\__, |\___|_|   @")
+    printy("[bw]                                    __/ |          @")
+    printy("[bw]                                   |___/           @")
 
     #printy("[bw]Author: Daniel Bresler@\n")
 
