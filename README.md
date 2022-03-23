@@ -1,2 +1,4 @@
-# Maldoc-Parser
-Maldoc-Parser is a tool for extensive static analysis on multiple file formats used by malicious documents such as OLE, Open XML, RTF and PDF.
+# DocSlayer
+maldoc_parser is a static analysis tool for common Office formats and PDF files.
+The main goal of the tool is to automate static analysis as much as possible.
+It currently supports OLE, OOXML, RTF and PDF files.
