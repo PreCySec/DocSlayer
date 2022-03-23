@@ -16,8 +16,8 @@ Python:
 python docslayer,py <MALDOC_FILEPATH>
 ```
 
-<img src="./images/docslayer1.png" alt="" width="600 ">
+<img src="./images/docslayer1.png" alt="" width="800 ">
 
-<img src="./images/docslayer2.png" alt="" width="600 ">
+<img src="./images/docslayer2.png" alt="" width="800 ">
 
-<img src="./images/docslayer3.png" alt="" width="600 ">
+<img src="./images/docslayer3.png" alt="" width="800 ">
