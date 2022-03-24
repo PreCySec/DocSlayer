@@ -1,14 +1,15 @@
 import re
 import glob
-from pyxlsb import open_workbook as open_xlsb
 import zipfile
 from printy import *
 import xml.etree.ElementTree as ET
-#from XLSParser import XLSParser
-from OLEParser import OLEParser
+from pyxlsb import open_workbook as open_xlsb
+
 import VBADecompress
 from helpers import *
 from helpers import Helpers
+#from XLSParser import XLSParser
+from OLEParser import OLEParser
 
 
 class OOXMLParser:
@@ -170,7 +171,7 @@ class OOXMLParser:
 
         if mshtml:
             mshtml_string = str(", ".join(mshtml))
-            # printy("\n[r>][!] Found Possible MSHTML abuse in file:@ %s" % filename)
+            #printy("\n[r>][!] Found Possible MSHTML abuse in file:@ %s" % filename)
             summary_string = raw_format("[r>]Found Possible MSHTML abuse in file:@ %s"
                                         % filename.replace("\\unzipped", ""))
             self.helpers.add_summary_if_no_duplicates(summary_string, mshtml_string)
@@ -178,7 +179,7 @@ class OOXMLParser:
 
         if ext_template:
             reference = str(", ".join(ext_template))
-            # printy("\n[o>]Found external relationship in file:@ %s -- %s" % (filename, reference))
+            #printy("\n[o>]Found external relationship in file:@ %s -- %s" % (filename, reference))
             summary_string = raw_format("[o>]Found Possible Template injection in file:@ %s"
                                         % filename.replace("\\unzipped", ""))
             self.helpers.add_summary_if_no_duplicates(summary_string, reference[0])
@@ -186,7 +187,7 @@ class OOXMLParser:
 
         if hyperlinks:
             links = str(", ".join(hyperlinks))
-            # printy("\n[r>][!] Found hyperlinks in file:@ %s" % filename)
+            #printy("\n[r>][!] Found hyperlinks in file:@ %s" % filename)
             summary_string = raw_format("[r>]Found hyperlinks in file:@ %s"
                                         % filename.replace("\\unzipped", ""))
             self.helpers.add_summary_if_no_duplicates(summary_string, links)
@@ -194,7 +195,7 @@ class OOXMLParser:
 
         if external_oleobj:
             oleobj = str(", ".join(external_oleobj))
-            # printy("\n[r>][!] Found external reference to OLE object in file:@ %s" % filename)
+            #printy("\n[r>][!] Found external reference to OLE object in file:@ %s" % filename)
             summary_string = raw_format("[r>]Found external relationship to OLE object in file:@ %s"
                                         % filename.replace("\\unzipped", ""))
             self.helpers.add_summary_if_no_duplicates(summary_string, oleobj)
