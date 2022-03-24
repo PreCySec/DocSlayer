@@ -3,8 +3,6 @@ import os
 import sys
 import olefile
 import binascii
-import hexdump
-import subprocess
 import msoffcrypto
 # from capstone import *
 from printy import *
@@ -47,9 +45,13 @@ class OLEParser:
         CFB header (Compund File Binary)
           -  16 bytes of zeroes
           -  2-byte Hex value 3E00 indicating CFB minor version 3E
-          -  2-byte Hex value 0300 indicating CFB major version 3 or value 0400 indicating CFB major version 4.
-          -  2-byte Hex value FEFF indicating little-endian byte order for all integer values. This byte order applies to all CFB files.
-          -  2-byte Hex value 0900 (indicating the sector size of 512 bytes used for major version 3) or 0C00 (indicating the sector size of 4096 bytes used for major version 4)
+          -  2-byte Hex value 0300 indicating CFB major version 3 or value 0400 indicating CFB major version 4. [Note:
+          All XLS files created recently by compilers of this resource (in versions of Excel for MacOS and Windows) and
+          examined with a Hex dump utility have been based on CFB major version 3. Comments welcome.]
+          -  2-byte Hex value FEFF indicating little-endian byte order for all integer values. This byte order applies
+           to all CFB files.
+          -  2-byte Hex value 0900 (indicating the sector size of 512 bytes used for major version 3) or 0C00
+          (indicating the sector size of 4096 bytes used for major version 4)
           -  480 bytes for remainder of the 512-byte header, which fills the first sector for a CFB of major version 3
           -  For a CFB of major version 4, the rest of the first sector, 3,584 bytes of zeroes
 
@@ -101,7 +103,6 @@ class OLEParser:
         Executes all OLE related analysis methods
 
         """
-
         stream_table = BeautifulTable()
         stream_table.headers = (["Stream", "Comments"])
         stream_table.maxwidth = 500
@@ -109,16 +110,12 @@ class OLEParser:
         try:
             # Parse input file as OLE to analyze its streams/storages.
             ole = olefile.OleFileIO(fname)
-            print("\n")
             print("=" * (len(stream_name)+34))
             printy("[bw]Analyzing streams in OLE file: %s@" % stream_name)
             print("=" * (len(stream_name)+34))
 
             # Read input file data.
             file_data = open(fname, "rb").read()
-
-            # Search for known object CLSIDs (identifiers).
-            self.scan_clsid(file_data, fname)
 
             # Iterate over each stream in the OLE file.
             for stream in ole.listdir():
@@ -130,7 +127,6 @@ class OLEParser:
                     print("[!] Document is protected.\n[+] Starting decryption function.")
                     # Attempt decryption using known default password "VelvetSweatShop".
                     self.decrypt_cdfv2(fname)
-                    return
 
                 # Open current stream and read its data.
                 ole_stream = ole.openstream(stream)
@@ -172,12 +168,8 @@ class OLEParser:
                             outfile_name = s + "_vbamacros"
 
                             # Prepare content for printing and tables.
-                            try:
-                                print_string = raw_format("[r>]Found VBA macros in stream \'%s\'\nSaving VBA macros from to file: %s\n---------\n%s@" \
+                            print_string = raw_format("[r>]Found VBA macros in stream \'%s\'@\nSaving VBA macros from to file: %s\n---------@\n%s@" \
                                            % (str("\\".join(stream)), outfile_name, decompressed))
-                            except InvalidFlag:
-                                print_string = "Found VBA macros in stream \'%s\'\nSaving VBA macros from to file: %s\n---------\n%s" \
-                                    % (str("\\".join(stream)), outfile_name, decompressed)
 
                             summary_string = raw_format("[r>]Found VBA macros in stream \'%s\\%s\'@" % (
                             str(stream_name), str("\\".join(stream))))
@@ -210,26 +202,14 @@ class OLEParser:
             #print(stream_table)
 
         except OSError as e:
-            printy("[r>][-] %s: %s@" % (fname, e))
-            printy("[r>][-] Failed parsing OLE object (fragmented/corrupted)@")
-            printy("[r>][-] Indicates that an OLE file header was parsed but the data is fragmented and was not fully "
-                   "constructed@")
-            printy("[r>][-] If you didn\'t see the CFB (Compound File Binary) header parsed prior to this error "
-                   "- not an OLE file. ***@")
+            #printy("[r>][-] %s: %s@" % (fname, e))
+            #printy("[r>][-] Failed parsing OLE object (fragmented/corrupted)@")
+            #printy("[r>][-] Indicates that an OLE file header was parsed but the data is fragmented and was not fully "
+            #       "constructed@")
+            #printy("[r>][-] If you didn\'t see the CFB (Compound File Binary) header parsed prior to this error "
+            #       "- not an OLE file. ***@")
             #self.helpers.add_summary_if_no_duplicates()
-
             pass
-
-    def find_package(self, data):
-
-        if self.helpers.package_magic in data:
-            package_start_offset = re.search(self.helpers.package_magic, data).start()
-            package_end_offset = re.search(self.helpers.package_magic, data).end()
-
-            printy("[r>][!] Found an embedded Package@\n")
-            print_string = raw_format("[r>]Found an embedded Package@")
-            self.helpers.add_summary_if_no_duplicates(print_string, self.helpers.package_magic.decode('utf-8'))
-            print(hexdump.hexdump(data[package_end_offset:package_end_offset+200]))
 
     def eqnedt32_detect(self, stream, stream_data, file_data):
         """
@@ -374,15 +354,13 @@ class OLEParser:
                         f.close()
                         os.remove(f.name)
                         printy("\n\n[bc>][+] Continuing original file analysis:@\n" + "=" * 50)
+
+                    elif MICROSOFT_OFFICE_WORD in stream_data or WORD_DOCUMENT in stream_data:
+                        doc_parser = DocParser(stream_data)
+                        print("\n\n[bc>][+] Continuing original file analysis:@\n" + "=" * 50)
+                        pass
         else:
             pass
-
-    def scan_clsid(self, data, obj_file):
-        for clsid in self.helpers.CLSIDS:
-            if re.search(clsid, data):
-                printy("[y][+] OLE object identifier (CLSID):@\n%s\n%s" % (clsid, self.helpers.CLSIDS[clsid]))
-                print_string = raw_format("[o>]Object identifier:\n\'%s\'\nFile:\n%s@" % (clsid, obj_file))
-                self.helpers.add_summary_if_no_duplicates(print_string, self.helpers.CLSIDS[clsid])
 
     def decrypt_cdfv2(self, filename):
 
@@ -396,16 +374,9 @@ class OLEParser:
             file.decrypt(open(decrypted_outfile, "wb"))
             printy("    Used default password: VelvetSweatshop\n    [o>]Saved decrypted document to file: %s@\n"
                   "Please check the decrypted file, rerun the tool and use the decrypted file" % decrypted_outfile)
-
-            process = subprocess.Popen(['python', "C:\\Users\\Daniel\\Desktop\\MalDocs-Parser\\MalDocs-Parser-main\\maldoc_parser.py",
-                                        decrypted_outfile],
-                                       stdout=subprocess.PIPE)
-            for c in iter(lambda: process.stdout.read(1), b''):
-                sys.stdout.buffer.write(c)
-                #f.write(c)
-            #f.close()
-
-            return
+            #return decrypted_outfile
+            exit(0)
         except msoffcrypto.exceptions.InvalidKeyError:
             print("[-] Could not decrypt protected document - password is not the default...\nRun the document in a sandbox")
+            exit(0)
             return
