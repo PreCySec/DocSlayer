@@ -53,53 +53,11 @@ class RTF:
           - If failed parsing data as OLE, will process it as arbitrary blob (blobs).
 
         """
-        """
-        unified = b''
-        test_blobs_regex = re.compile(rb'[\}|\{]([\x00-\x66]+)[\}|\{]|[\}|\{]([\x00-\x76]+?)\}|[\}|\{]([\x00-\x66]+)\\')
-        test_blobs = re.search(test_blobs_regex, data)
-        for match in re.finditer(test_blobs_regex, data):
-            blob = b""
-            for b in list(match.groups()):
-                if b is not None:
-                    if b"\\" in b or b"^" in b or b"=" in b or b"{" in b or b"}" in b or b"*" in b or b"?" in b or \
-                            b"%" in b or b":" in b or b">" in b or b"<" in b or b"#" in b or b"$" in b or \
-                            re.findall(rb'[A-Z]', b):
-                        continue
-                    else:
-                        unified += b
-        """
-
-
-        """
-        STRONG OPTION:
-        ==============
-        
-        temp = b""
-
-        rtf_nests_regex = rb'[\{]{1,50}[\x00-\xff]+?[\}]{1,50}|\\\\|\''
-        control_word_regex = rb'\\[a-z]+|\\\\[a-z]+|\\\\\*\\\\[a-z]+'
-        special_chars_regex = rb'[@_!#$%^&*()<>?/\|}{~:\'\\\)\(\]\[\+\=\.]'
-        junk_data_regex = rb'[g-zA-Z].*[g-zA-Z]'
-        temp = re.sub(rtf_nests_regex, b'', data)
-        temp = re.sub(rb'\\\\', b'', temp)
-        temp = re.sub(rb'\\', b'', temp)
-        temp = re.sub(rb'\'', b'', temp)
-        #temp = re.sub(control_word_regex, b"", temp)
-        temp = self.remove_control_words(temp)
-        temp = re.sub(special_chars_regex, b"", temp)
-        temp = re.sub(junk_data_regex, b"", temp)
-        #temp = re.sub(rb'\\\\\*\\\\bin|\\\\\*\\\\field|\\x', b'', temp)
-        temp = re.sub(rb'g-zG-Z', b'', temp)
-        pass
-        """
-
         # Extract OLE blobs (CFB header was detected in hex).
         ole_blobs = re.findall(self.helpers.rtf_ole_blob_regex, data)
 
         # Extract hex blobs, regardless of OLE magic.
-        blobs = re.findall(self.helpers.rtf_binary_blob_regex_1, data)
-        if len(blobs) > 90:
-            blobs = re.findall(self.helpers.rtf_binary_blob_regex_2, data)
+        blobs = re.findall(self.helpers.rtf_binary_blob_regex, data)
 
         filename = "obj.bin"
         f = open(filename, "w+b")
@@ -113,75 +71,6 @@ class RTF:
 
         # Process arbitrary hex blobs.
         self.analyze_blob(blobs, len_blobs, f, filename, data)
-
-    def test(self, data):
-
-        #rtf_control_words_regex = rb'(\\\*)?\\[a-z]+(-?[0-9]+)? ?'
-        rtf_control_words_regex = rb"[\\\*]?\\[a-z]+[-?[0-9]+]? ?"
-        RTF_START = 0
-        RTF_EOF = len(data)
-        EOF = False
-        i = 0
-        control_words = re.findall(rtf_control_words_regex, data)
-
-        for i in range(0, len(control_words) - 1):
-
-            word_hex_regex = rb'[a-f0-9]+$|[0-9]+$'
-            word = control_words[i]
-
-            try:
-                word_hex = re.findall(word_hex_regex, word)
-
-                if word_hex is []:
-                    pass
-                else:
-                    if len(word_hex) > 5:
-                        print(hexdump.hexdump(word_hex[0]))
-
-            except Exception as e:
-                print(e)
-
-            word_length = len(word)
-            word_last_char = word[word_length-1]
-
-            if i is (len(control_words) - 1):
-                EOF = True
-            if EOF:
-                break
-
-            if chr(word_last_char) is "\\":
-                continue
-
-            print("\n[+] Control Word:\n%s" % word.decode('utf-8'))
-            if data.find(word) is RTF_START + 1:
-                continue
-
-            section_start = data.find(control_words[i])
-            try:
-                section_end = data.find(control_words[i + 1])
-            except IndexError:
-                section_end = EOF - 1
-
-            section_length = section_end - section_start
-
-            if section_start < 0:
-                print("[+] Section Length: %s" % section_length)
-                print("[+] Section start Offset: %s" % section_start)
-                print("\n")
-            else:
-                continue
-
-            if section_end < 0:
-                print("[+] Section End Offset: %s" % section_end)
-                print("\n")
-            else:
-                print("\n")
-                i += 1
-                continue
-
-        print("\n")
-        print(len(control_words))
-        print("\n")
 
     def analyze_ole_blob(self, ole_blobs, length, filename):
         """
@@ -205,6 +94,7 @@ class RTF:
                     ms_ole = OLEParser(obj_data)
                     f = open(filename, "w+b")
                     f.write(obj_data)
+
 
                     printy("\n[r>][!] Found \'d0cf11e0\' magic in the RTF file contents@")
                     printy("[y][+] Saved OLE file contents to: %s@" % f.name)
@@ -249,81 +139,74 @@ class RTF:
 
             # Iterate over each hex blob and analyze it.
             for blob in blobs:
-
-                if b'a1b11ae100000000000000000000000000000000' in blob and b'd0cf11e' not in blob:
-                    complete_ole = self.reconstruct_ole(blob)
-                    blob_data = binascii.unhexlify(complete_ole.upper())
-                    # print(hexdump.hexdump(blob_data[:1500]))
-                    ms_ole = OLEParser(blob_data)
-                    with open(filename, "wb") as f:
-                        f.write(blob_data)
-                        ms_ole.extract_embedded_ole(filename, filename)
-                        continue
-
                 # Each blob is a list of smaller streams, therefore, iterate over each stream in the inline list.
-                # Only process blobs that have enough data to be meaningful.
-                if len(blob) > 200:
-                    try:
-                        blob_data = binascii.unhexlify(blob.upper())
-                    except binascii.Error:
-                        # Could not unhexlify uppercase data.
+                for b in blob:
+                    # Save stream length.
+                    b_len = len(b)
+
+                    # Only process blobs that have enough data to be meaningful.
+                    if b_len > 200:
                         try:
-                            # Unhexlify in lowercase.
-                            blob_data = binascii.unhexlify(blob)
+                            blob_data = binascii.unhexlify(b.upper())
                         except binascii.Error:
-                            # Binascii could not unhexlify data because its length is not even (len(b) % 2 != 0)
-                            # Therefore, check if auxiliary code was used before proceeding to it.
-                            if auxiliary_used:
-                                break
+                            # Could not unhexlify uppercase data.
+                            try:
+                                # Unhexlify in lowercase.
+                                blob_data = binascii.unhexlify(b)
+                            except binascii.Error:
+                                # Binascii could not unhexlify data because its length is not even (len(b) % 2 != 0)
+                                # Therefore, check if auxiliary code was used before proceeding to it.
+                                if auxiliary_used:
+                                    break
 
-                            # Auxiliary Code:
-                            # ---------------
-                            # Triggered when initial hex blob extracting regular expressions failed to find any
-                            # blobs.
+                                # Auxiliary Code:
+                                # ---------------
+                                # Triggered when initial hex blob extracting regular expressions failed to find any
+                                # blobs.
 
-                            # Set flag that tells if auxiliary code was used to True.
-                            auxiliary_used = True
+                                # Set flag that tells if auxiliary code was used to True.
+                                auxiliary_used = True
 
-                            # Use auxiliary regex to find hex blobs.
-                            print("Using auxiliary regex to find data blobs...")
-                            aux_regex = rb"[A-Z]\}([\x00-\x66]+)\{\\|[A-Z]\}|[a-z]([\x00-\x66]+)"
-                            aux_matches = re.findall(aux_regex, data)
+                                # Use auxiliary regex to find hex blobs.
+                                print("Using auxiliary regex to find data blobs...")
+                                aux_regex = rb"[A-Z]\}([\x00-\x66]+)\{\\|[A-Z]\}|[a-z]([\x00-\x66]+)"
+                                aux_matches = re.findall(aux_regex, data)
 
-                            # Iterate over matches from the auxiliary regex.
-                            for t in aux_matches:
-                                # Each match is a list, therefore have to add another for loop...
-                                for m in t:
-                                    # Process blobs that have enough data to be meaningful.
-                                    if len(m) > 200:
-                                        try:
-                                            # Convert hex to UPPERCASE and unhexlify.
-                                            blob_data = binascii.unhexlify(m.upper())
-
-                                            # Print blob in hex view, search functions, extract ASCII/wide
-                                            # char strings. Then Create file and write blob data to it.
-                                            self.arbitrary_blob_analysis(f, filename, blob_data)
-                                        except binascii.Error:
-                                            # Could not unhexlify hex data in uppercase
+                                # Iterate over matches from the auxiliary regex.
+                                for t in aux_matches:
+                                    # Each match is a list, therefore have to add another for loop...
+                                    for m in t:
+                                        # Process blobs that have enough data to be meaningful.
+                                        if len(m) > 200:
                                             try:
-                                                # Unhexlify hex data as lowercase.
-                                                blob_data = binascii.unhexlify(m)
-                                            except binascii.Error:
-                                                print("\n[-] binascii error: hex data length is not an even "
-                                                      "number... probably missing a character to make data hex "
-                                                     "readable.")
-                                                # Print blob data anyway.
-                                                print(m)
-                                                continue
-                                            else:
-                                                # Hex data was successfully unhexlified in lowercase.
+                                                # Convert hex to UPPERCASE and unhexlify.
+                                                blob_data = binascii.unhexlify(m.upper())
+
                                                 # Print blob in hex view, search functions, extract ASCII/wide
                                                 # char strings. Then Create file and write blob data to it.
                                                 self.arbitrary_blob_analysis(f, filename, blob_data)
+                                            except binascii.Error:
+                                                # Could not unhexlify hex data in uppercase
+                                                try:
+                                                    # Unhexlify hex data as lowercase.
+                                                    blob_data = binascii.unhexlify(m)
+                                                except binascii.Error:
+                                                    print("\n[-] binascii error: hex data length is not an even "
+                                                          "number... probably missing a character to make data hex "
+                                                          "readable.")
+                                                    # Print blob data anyway.
+                                                    print(m)
+                                                    continue
+                                                else:
+                                                    # Hex data was successfully unhexlified in lowercase.
+                                                    # Print blob in hex view, search functions, extract ASCII/wide
+                                                    # char strings. Then Create file and write blob data to it.
+                                                    self.arbitrary_blob_analysis(f, filename, blob_data)
                             else:
                                 # Hex data was successfully unhexlified in lowercase and now is analyzed.
                                 # Print hex view of blob, search for Equation Editor exploit, extract ASCII/wide char
                                 # strings
-                                self.arbitrary_blob_analysis(f, filename, blob_data)
+                                self.arbitrary_blob_analysis(f, filename, data)
 
                         else:
                             # Hex data was successfully unhexlified in UPPERCASE and now is analyzed.
@@ -359,25 +242,16 @@ class RTF:
 
         """
         # Print hex view of the blob data.
-        if len(data) < 2000:
-            print(hexdump.hexdump(data))
-        else:
-            print(hexdump.hexdump(data[:2000]))
+        print(hexdump.hexdump(data))
 
         # Initiate the OLEParser() class with the blob data.
         ms_ole = OLEParser(data)
-
-        # Although failed to parse as OLE, try to see if it matches one of the object CLSIDs (identifiers).
-        ms_ole.scan_clsid(data, filename)
 
         # Extract and decode ASCII / wide char strings.
         ms_ole.extract_unicode_and_ascii_string(f.name, data)
 
         # Search for Equation Editor exploit fingerprints.
         self.search_eqnedt32(data, filename)
-
-        # Search for embedded file objects (packages).
-        ms_ole.find_package(data)
 
         # Check for functions in data.
         if b'Function' in data or b'Sub ' in data:
@@ -432,7 +306,7 @@ class RTF:
 
         """
         equation = re.findall(self.helpers.equation_byte_regex, data)
-        equation1 = re.findall(self.helpers.EQ_EDIT_CLSID_RE, data)
+        equation1 = re.findall(self.helpers.equation_regex, data)
         summary_desc = ""
         if equation or equation1:
             summary_string = raw_format("[r>]Indication of Equation Editor exploit "
@@ -445,26 +319,6 @@ class RTF:
                 summary_desc = "Found \'%s\' in binary data stream" % equation1
 
             self.helpers.add_summary_if_no_duplicates(summary_string, summary_desc)
-
-    def reconstruct_ole(self, data):
-
-        if b'a1b11ae100000000000000000000000000000000' in data:
-            broken_ole_regex = re.compile(rb'a1b11ae1(00000000000000000000000000000000.*)')
-            no_docfile_data = re.search(broken_ole_regex, data).group(1)
-            complete = b'd0cf11e0a1b11ae1' + no_docfile_data
-            return complete
-        else:
-            return None
-
-    def remove_control_words(self, data):
-        temp = data
-        for word in self.helpers.RTF_CONTROL_WORDS:
-            if word in temp:
-                try:
-                    re.sub(word, b"", temp)
-                except re.error:
-                    temp.strip(word)
-        return temp
 
     def search_pe_file(self, data):
         """
