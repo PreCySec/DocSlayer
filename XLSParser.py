@@ -1,4 +1,3 @@
-import re
 import struct
 import string
 import xlrd
@@ -649,3 +648,5 @@ class XLSParser:
                 return 0
         else:
             print("[-] Couldn't find a valid Shared Strings Table...")
+
+            
