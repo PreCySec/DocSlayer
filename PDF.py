@@ -19,19 +19,21 @@ class PDF:
     Run multiple checks for common PDF weaponizing vectors.
 
     """
-    # The Helpers() class holds all regular expressions and required helper functions
+
+    # the Helpers() class holds all regular expressions and required helper functions
     helpers = Helpers()
 
     def __init__(self, data):
         self.data = data
 
     def enum_objects(self, data):
+
         """
         Enumerate all objects in the PDF document.
         The main method in the class, running all other methods.
         Analyzes each object separately using the PDF() methods.
-
         """
+
         # Prepare PDF object table before populating it
         obj_table = BeautifulTable(maxwidth=100)
         obj_table.headers = (["Object", "Type"])
@@ -145,14 +147,17 @@ class PDF:
 
                     # If decompression succeeded and the file is RTF, initiate the RTF class for inline analysis of
                     # the RTF document.
-                    if self.helpers.determine_mimetype(decompressed) is 'rtf':
-                        rtf = RTF()
+                    if self.helpers.determine_mimetype(decompressed) == 'rtf':
+                        rtf = RTF(decompressed)
+                        summary_string = raw_format("[r>]Embedded document@")
+                        summary_desc = "Found RTF document"
+                        self.helpers.add_summary_if_no_duplicates(summary_string, summary_desc)
                         clean = rtf.clean_hex_data(decompressed)
                         rtf.search_ole_obj(clean)
 
                     # If decompression succeeded and the file is OLE, initiate the OLEParser class for inline
                     # analysis of the OLE file.
-                    elif self.helpers.determine_mimetype(decompressed) is 'ole':
+                    elif self.helpers.determine_mimetype(decompressed) == 'ole':
                         ms_ole = OLEParser(decompressed)
                         f = open("ole_temp.bin", "r+b")
                         f.write(decompressed)
@@ -173,8 +178,11 @@ class PDF:
 
                         # If decompression succeeded and the file is RTF, initiate the RTF class for inline analysis of
                         # the RTF document.
-                        if mimetype is 'rtf':
+                        if mimetype == 'rtf':
                             rtf = RTF()
+                            summary_string = raw_format("[r>]Embedded document@")
+                            summary_desc = "Found RTF document"
+                            self.helpers.add_summary_if_no_duplicates(summary_string, summary_desc)
                             clean = rtf.clean_hex_data(decompressed)
                             rtf.search_ole_obj(clean)
 
@@ -190,8 +198,11 @@ class PDF:
 
                     # If decompression succeeded and the file is RTF, initiate the RTF class for inline analysis of
                     # the RTF document.
-                    if mimetype is 'rtf':
+                    if mimetype == 'rtf':
                         rtf = RTF()
+                        summary_string = raw_format("[r>]Embedded document@")
+                        summary_desc = "Found RTF document"
+                        self.helpers.add_summary_if_no_duplicates(summary_string, summary_desc)
                         clean = rtf.clean_hex_data(decompressed)
                         rtf.search_ole_obj(clean)
 
@@ -209,8 +220,11 @@ class PDF:
 
                     # If decompression succeeded and the file is RTF, initiate the RTF class for inline analysis of
                     # the RTF document.
-                    if mimetype is 'rtf':
+                    if mimetype == 'rtf':
                         rtf = RTF()
+                        summary_string = raw_format("[r>]Embedded document@")
+                        summary_desc = "Found RTF document"
+                        self.helpers.add_summary_if_no_duplicates(summary_string, summary_desc)
                         clean = rtf.clean_hex_data(decompressed)
                         rtf.search_ole_obj(clean)
 
@@ -230,19 +244,26 @@ class PDF:
 
 
     def print_obj_short(self, objects, obj_table):
-        """
-        Prints a short list of the objects and their types..
 
         """
+        Prints a short list of the objects and their types..
+        """
+
         for obj in objects:
             headers = re.findall(self.helpers.obj_header, obj)
             for header in headers:
-                obj_table.rows.append(["Object %s" % obj[:2].decode('utf-8'), header.decode('utf-8')])
+                try:
+                    obj_table.rows.append(["Object %s" % obj[:2].decode('utf-8'), header.decode('utf-8')])
+                except UnicodeError:
+                    try:
+                        obj_table.rows.append(["Object %s" % obj[:2].decode('utf-8'), header])
+                    except UnicodeError:
+                        obj_table.rows.append(["Object %s" % obj[:2], header])
 
     def flate_decode(self, data, obj_num_bin):
+
         """
         Decompresses Zlib Inflated streams.
-
         """
         try:
             data = data.strip(b'\r\n')
@@ -258,9 +279,9 @@ class PDF:
             return 0
 
     def lzw_decode(self, data):
+
         """
         Decompresses LZW compressed streams.
-
         """
         # Build the dictionary.
         dict_size = 256
@@ -287,7 +308,6 @@ class PDF:
     def find_export_data_obj(self, data):
         """
         Another approach to find embedded files - this.exportDataObject().
-
         """
         export_data_objects = re.findall(self.helpers.export_data_regex, data)
         for exp in export_data_objects:
@@ -299,7 +319,6 @@ class PDF:
     def find_filespec(self, data):
         """
         Find embedded files - /FileSpec
-
         """
         if re.findall(self.helpers.filespec_regex, data):
             filespec = re.findall(self.helpers.file_regex, data)
@@ -315,7 +334,6 @@ class PDF:
         """
         Find UNC paths (shares)
         Can indicate possible exploitation of CVE-2018-4993
-
         """
         unc = re.findall(self.helpers.unc_regex, data)
         for p in unc:
@@ -327,7 +345,6 @@ class PDF:
     def extract_uri(self, data):
         """
         Find /URI
-
         """
         uris = re.findall(self.helpers.uri_regex, data)
         return uris
@@ -335,7 +352,6 @@ class PDF:
     def find_emb_files(self, data):
         """
         Find /Type /EmbeddedFile
-
         """
         emb_files = re.findall(self.helpers.emb_file_regex, data)
 
@@ -352,7 +368,6 @@ class PDF:
     def find_objstm(self, data):
         """
         Find /Objstm
-
         """
         emb_files = re.findall(self.helpers.objstm_regex, data)
         return emb_files
@@ -360,7 +375,6 @@ class PDF:
     def find_js_reference(self, data, obj_num_bin):
         """
         Find "/JS <obj_num> 0 R" - references to objects with JavaScript
-
         """
         js_ref_regex = re.compile(self.helpers.js_ref_pattern)
         for match in re.finditer(js_ref_regex, data):
@@ -369,9 +383,9 @@ class PDF:
 
 
     def open_action(self, data, obj_num_bin):
+
         """
         Find "/AA and /OpenAction" - automatic actions that are executed when the document is opened.
-
         """
         # /AA and /OpenAction
         aa_regex = re.compile(self.helpers.auto_action_pattern)
@@ -394,7 +408,6 @@ class PDF:
     def find_launch(self, data, obj_num_bin):
         """
         Find "/Launch" - execute other applications.
-
         """
         # /Launch
         aa_regex = re.compile(self.helpers.auto_action_pattern)
@@ -403,12 +416,12 @@ class PDF:
             print(match)
 
     def find_goto_ref(self, data, obj_num_bin):
+
         """
         Find /GoTo* references:
         GoTo: “Go-to” a destination within the document
         GoToR: “Go-to remote” destination
         GoToE: “Go-to embedded” destination
-
         """
         try:
             goto_ref = re.findall(self.helpers.goto_regex, data)[0]
@@ -422,7 +435,6 @@ class PDF:
     def find_submitform(self, data, obj_num_bin):
         """
         Find /SubmitForm
-
         """
         try:
             submit_form = re.findall(self.helpers.submitform_regex, data)[0]
@@ -440,7 +452,6 @@ class PDF:
         If there is valid hex data, it is decoded and the magic bytes are checked.
         If the decoded data is an OLE or RTF file, maldoc_parser will recursively analyze the data using the OLEParser
         or RTF classes.
-
         """
         if b'ASCIIHexDecode' in data or b'ASCII85HexDecode' in data:
             try:
@@ -455,4 +466,17 @@ class PDF:
                 for hex in test:
                     if len(hex) > 1:
                         print(binascii.unhexlify(test[0]).decode('utf-8'))
+                        hex_data = binascii.a2b_hex(hex)
+                        chunk = hex_data[:4]
+                        if b'\\rt' in chunk:
+                            rtf = RTF(hex_data)
+                            summary_string = raw_format("[r>]Embedded document@")
+                            summary_desc = "Found RTF document"
+                            self.helpers.add_summary_if_no_duplicates(summary_string, summary_desc)
+                            # Find and "clean" hex data
+                            clean = rtf.clean_hex_data(hex_data)
+                            # Search any OLE files and binary blobs in the "cleaned" hex data.
+                            rtf.search_ole_obj(clean)
                         break
+
+                        
