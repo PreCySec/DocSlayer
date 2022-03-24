@@ -30,9 +30,10 @@
 #
 ########################################################################################################################
 
-import os
 import sys
-import shutil
+import shutil, os
+import os.path
+from os import path
 import hashlib
 from XLSParser import *
 from printy import *
@@ -59,7 +60,6 @@ def print_banner():
     printy("[bw]                                    __/ |          @")
     printy("[bw]                                   |___/           @")
 
-    #printy("[bw]Author: Daniel Bresler@\n")
 
 
 def main():
@@ -69,16 +69,9 @@ def main():
         print_banner()
         printy("\n[r>]maldocs_parser: provide file path\nUsage: maldocs_parser.exe <file_path>@\n")
         exit(0)
-
     helpers = Helpers()
     filename = sys.argv[1]
-
-    # If the given path is a directory it will run the tool on each sample in the directory.
-    if os.path.isdir(filename):
-        print("[+] Analyzing multiple samples\n")
-        samples = helpers.list_files(filename)
-        helpers.read_stdout(samples)
-        exit(0)
+    print_banner()
 
     printy("[y][+] Parsing file: %s@" % filename)
 
@@ -90,15 +83,15 @@ def main():
     readable_hash = hashlib.sha256(data).hexdigest()
     printy("[y][+] File sha256: %s@" % str(readable_hash))
 
-    # Determine file type via magic bytes/signature
-    mimetype = helpers.determine_mimetype(data)
-
     print("\n\n+----------------------------------------------------------------------+")
     printy("+======================= [bw]Static Analysis Report@ ======================+")
     print("+----------------------------------------------------------------------+")
 
+    # Determine file type via magic bytes/signature
+    mimetype = helpers.determine_mimetype(data)
+
     # If the file is OLE
-    if mimetype is "ole":
+    if mimetype == "ole":
         # Initiate the OLEParser class
         ms_ole = OLEParser(data)
         # Parse CFB header, extract all streams and analyze them
@@ -122,6 +115,14 @@ def main():
             # Extract data from sheets (XLM 4 macros)
             xls_parser.extract_sheets(filename)
 
+            # Attempt to extract VBA macros if there are any
+            decompressed = None
+            try:
+                decompress_obj = VBADecompress(data)
+                decompressed = decompress_obj.SearchAndDecompress(data)
+            except TypeError:
+                pass
+
             # Extract strings from Shared Strings table (SST)
             xls_parser.parse_sst(data)
 
@@ -132,24 +133,24 @@ def main():
             pass
 
     # If the file is RTF
-    elif mimetype is "rtf":
+    elif mimetype == "rtf":
         # Initiate the RTF() class with the document data.
         rtf = RTF(data)
 
         # Find and "clean" hex data
-        rtf.test(data)
         clean = rtf.clean_hex_data(data)
 
         # Search any OLE files and binary blobs in the "cleaned" hex data.
         rtf.search_ole_obj(clean)
 
     # If the file is Office Open XML
-    elif mimetype is "ooxml":
+    elif mimetype == "ooxml":
 
         # Initiate the OOXMLParser() class
         ooxml_obj = OOXMLParser(data)
 
         # Find and extract embedded OLE files.
+        print("[+] Looking for embedded OLE files in OOXML ZIP container")
         ooxml_obj.detect_emb_ole(data, filename)
 
         # If the OOXML file is Excel
@@ -160,10 +161,12 @@ def main():
             # check file extension to know how to read sheets
             if "xlsx" or "xlsm" in filename:
                 # The below method is specific to reading data from sheets in binary Excel worksheets
+                print("[+] Reading Excel sheets")
                 ooxml_excel.read_sheets(filename)
             # If the Excel is a binary worksheet (.xlsb)
             if "xlsb" in filename:
                 # The below method is specific to reading data from sheets in binary Excel worksheets
+                print("[+] Reading binary Excel sheets (.xlsb)")
                 ooxml_excel.read_binary_excel_sheets(filename)
 
         if ooxml_obj.doc_type == "ppt":
@@ -172,21 +175,16 @@ def main():
             pass
 
         ooxml_obj.parse_ole_file(data, filename)
+        print("[+] Looking for ActiveX objects in OOXML ZIP container")
         ooxml_obj.detect_activex(filename)
-        #os.rmdir('unzipped')
-
 
     # If the file is a PDF document
-    elif mimetype is 'pdf':
+    elif mimetype == 'pdf':
         # Initiate the PDF() class.
         pdf_parser = PDF(data)
 
         # List and analyze all PDF objects
         pdf_parser.enum_objects(data)
-
-
-    if os.path.isdir('.\\unzipped'):
-        shutil.rmtree('.\\unzipped', ignore_errors=True)
 
     print("\n\n+----------------------------------------------------------------------+")
     printy("+======================= [bw]Static Analysis Summary@ ======================+")
@@ -195,7 +193,23 @@ def main():
     helpers.summary_table.columns.alignment = BeautifulTable.ALIGN_LEFT
     print(helpers.summary_table)
 
+    if path.isdir('unzipped'):
+        shutil.rmtree("unzipped")
+
+    if path.isfile('data.txt'):
+        try:
+            os.remove("data.txt")
+        except FileNotFoundError:
+            pass
+
+    if path.isfile("obj.bin"):
+        try:
+            os.remove("obj.bin")
+        except FileNotFoundError:
+            print("[-] The file obj.bin could not be found...")
+        except PermissionError:
+            print("[-] The file obj.bin is still in use by the script. Close it and then remove it...")
+
 
 if __name__ == "__main__":
-    print_banner()
     main()
